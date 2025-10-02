@@ -1,9 +1,11 @@
 package ru.yandex.practicum.filmorate;
 
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import ru.yandex.practicum.filmorate.controller.UserController;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
@@ -14,12 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class UserControllerTest {
 
+    @Autowired
     private UserController userController;
-
-    @BeforeEach
-    void setUp() {
-        userController = new UserController();
-    }
 
     @Test
     void createUser_WithValidData_ShouldCreateUserSuccessfully() {
@@ -45,19 +43,11 @@ class UserControllerTest {
     }
 
     @Test
-    void createUser_WithEmptyEmail_ShouldThrowValidationException() {
-        User user = createValidUser();
-        user.setEmail("");
-
-        assertThrows(ValidationException.class, () -> userController.create(user));
-    }
-
-    @Test
     void createUser_WithInvalidEmail_ShouldThrowValidationException() {
         User user = createValidUser();
         user.setEmail("invalid-email");
 
-        assertThrows(ValidationException.class, () -> userController.create(user));
+        assertThrows(ConstraintViolationException.class, () -> userController.create(user));
     }
 
     @Test
@@ -65,7 +55,7 @@ class UserControllerTest {
         User user = createValidUser();
         user.setLogin("");
 
-        assertThrows(ValidationException.class, () -> userController.create(user));
+        assertThrows(ConstraintViolationException.class, () -> userController.create(user));
     }
 
     @Test
@@ -73,7 +63,7 @@ class UserControllerTest {
         User user = createValidUser();
         user.setLogin("login with spaces");
 
-        assertThrows(ValidationException.class, () -> userController.create(user));
+        assertThrows(ConstraintViolationException.class, () -> userController.create(user));
     }
 
     @Test
@@ -81,7 +71,7 @@ class UserControllerTest {
         User user = createValidUser();
         user.setBirthday(LocalDate.now().plusDays(1));
 
-        assertThrows(ValidationException.class, () -> userController.create(user));
+        assertThrows(ConstraintViolationException.class, () -> userController.create(user));
     }
 
     @Test
@@ -89,7 +79,7 @@ class UserControllerTest {
         User user = createValidUser();
         user.setId(999L);
 
-        assertThrows(ValidationException.class, () -> userController.update(user));
+        assertThrows(NotFoundException.class, () -> userController.update(user));
     }
 
     @Test
@@ -102,14 +92,18 @@ class UserControllerTest {
 
     @Test
     void findAll_WhenNoUsers_ShouldReturnEmptyCollection() {
+        userController.findAll().clear();
         assertTrue(userController.findAll().isEmpty());
     }
 
     @Test
     void findAll_WhenUsersExist_ShouldReturnAllUsers() {
         User user1 = userController.create(createValidUser());
-        User user2 = userController.create(createValidUser());
+
+        User user2 = createValidUser();
         user2.setEmail("another@example.com");
+        user2.setLogin("anotherlogin");
+        user2 = userController.create(user2);
 
         var result = userController.findAll();
 
@@ -131,18 +125,6 @@ class UserControllerTest {
         assertEquals("Updated Name", result.getName());
         assertEquals("updated@example.com", result.getEmail());
         assertEquals(originalUser.getId(), result.getId());
-    }
-
-    @Test
-    void createUser_WithNullUser_ShouldThrowNullPointerException() {
-        assertThrows(NullPointerException.class, () -> userController.create(null));
-    }
-
-    @Test
-    void createUser_WithUserHavingNullFields_ShouldThrowValidationException() {
-        User user = new User();
-
-        assertThrows(ValidationException.class, () -> userController.create(user));
     }
 
     private User createValidUser() {

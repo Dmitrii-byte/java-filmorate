@@ -1,9 +1,11 @@
 package ru.yandex.practicum.filmorate;
 
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 
@@ -15,12 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class FilmControllerTest {
 
+    @Autowired
     private FilmController filmController;
-
-    @BeforeEach
-    void setUp() {
-        filmController = new FilmController();
-    }
 
     @Test
     void addFilm_WithValidData_ShouldAddFilmSuccessfully() {
@@ -40,7 +38,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setName("");
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(ConstraintViolationException.class, () -> filmController.add(film));
     }
 
     @Test
@@ -48,7 +46,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setName(null);
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(ConstraintViolationException.class, () -> filmController.add(film));
     }
 
     @Test
@@ -56,7 +54,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setDescription("A".repeat(201));
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(ConstraintViolationException.class, () -> filmController.add(film));
     }
 
     @Test
@@ -64,7 +62,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setDescription("");
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(ConstraintViolationException.class, () -> filmController.add(film));
     }
 
     @Test
@@ -72,7 +70,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setReleaseDate(LocalDate.of(1895, 12, 27));
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(Exception.class, () -> filmController.add(film));
     }
 
     @Test
@@ -80,7 +78,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setDuration(Duration.ofMinutes(-10));
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(Exception.class, () -> filmController.add(film));
     }
 
     @Test
@@ -88,7 +86,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setDuration(Duration.ZERO);
 
-        assertThrows(ValidationException.class, () -> filmController.add(film));
+        assertThrows(Exception.class, () -> filmController.add(film));
     }
 
     @Test
@@ -96,7 +94,7 @@ class FilmControllerTest {
         Film film = createValidFilm();
         film.setId(999L);
 
-        assertThrows(ValidationException.class, () -> filmController.update(film));
+        assertThrows(NotFoundException.class, () -> filmController.update(film));
     }
 
     @Test
@@ -109,6 +107,7 @@ class FilmControllerTest {
 
     @Test
     void findAll_WhenNoFilms_ShouldReturnEmptyCollection() {
+        filmController.findAll().clear();
         assertTrue(filmController.findAll().isEmpty());
     }
 

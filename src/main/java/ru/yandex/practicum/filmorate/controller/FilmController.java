@@ -31,6 +31,13 @@ public class FilmController {
         return filmStorage.findAll();
     }
 
+    @GetMapping("/{id}")
+    public Film findById(@PathVariable @Positive(message = "ID фильма должен быть положительным") long id) {
+        log.info("GET /films/{} - получение фильма по ID", id);
+        return filmStorage.findById(id)
+                .orElseThrow(() -> new RuntimeException("Фильм с id " + id + " не найден"));
+    }
+
     @PostMapping
     public Film add(@Valid @RequestBody Film film) {
         log.info("POST /films - добавление фильма: {}", film);

@@ -9,10 +9,7 @@ import ru.yandex.practicum.filmorate.model.Film;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -95,8 +92,13 @@ public class InMemoryFilmStorage implements FilmStorage {
     }
 
     @Override
-    public Optional<Film> findById(Long id) {
+    public Optional<Film> findById(long id) {
         return Optional.ofNullable(films.get(id));
+    }
+
+    @Override
+    public List<Film> getTopPopular(int count) {
+        return List.of();
     }
 
     private void validateFilm(Film film) {

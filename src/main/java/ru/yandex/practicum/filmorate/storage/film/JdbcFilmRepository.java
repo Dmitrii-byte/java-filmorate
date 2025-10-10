@@ -10,14 +10,14 @@ import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.film.mappers.FilmRowMapper;
-import ru.yandex.practicum.filmorate.storage.genre.GenreRepository;
-import ru.yandex.practicum.filmorate.storage.mpa.MpaRepository;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Repository
@@ -26,8 +26,6 @@ import java.util.*;
 public class JdbcFilmRepository implements FilmStorage {
     private final NamedParameterJdbcOperations jdbc;
     private final FilmRowMapper filmRowMapper;
-    private final GenreRepository genreRepository;
-    private final MpaRepository mpaRepository;
 
     @Override
     public Optional<Film> findById(long id) {
@@ -49,10 +47,6 @@ public class JdbcFilmRepository implements FilmStorage {
         }
 
         Film film = films.getFirst();
-
-        Set<Genre> genres = genreRepository.findGenresByFilmId(id);
-        film.setGenres(genres);
-
         log.debug("Фильм с ID {} успешно найден: {}", id, film.getName());
         return Optional.of(film);
     }
@@ -77,13 +71,8 @@ public class JdbcFilmRepository implements FilmStorage {
 
         film.setId(Objects.requireNonNull(keyHolder.getKey()).longValue());
 
-        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
-            genreRepository.saveFilmGenres(film.getId(), film.getGenres());
-        }
-
-        Film savedFilm = findById(film.getId()).orElseThrow(() -> new RuntimeException("Фильм не найден после создания"));
-        log.info("Фильм '{}' (ID: {}) успешно создан", savedFilm.getName(), savedFilm.getId());
-        return savedFilm;
+        log.info("Фильм '{}' (ID: {}) успешно создан", film.getName(), film.getId());
+        return film;
     }
 
     @Override
@@ -113,28 +102,21 @@ public class JdbcFilmRepository implements FilmStorage {
 
         jdbc.update(updateSql, params);
 
-        if (film.getGenres() != null) {
-            genreRepository.updateFilmGenres(film.getId(), film.getGenres());
-        }
-
-        Film updatedFilm = findById(film.getId()).orElseThrow(() -> new RuntimeException("Фильм не найден после обновления"));
-        log.info("Фильм '{}' (ID: {}) успешно обновлен", updatedFilm.getName(), updatedFilm.getId());
-        return updatedFilm;
+        log.info("Фильм '{}' (ID: {}) успешно обновлен", film.getName(), film.getId());
+        return film;
     }
 
     @Override
     public List<Film> findAll() {
         log.debug("Получение списка всех фильмов");
 
-        List<Film> films = getAllFilmsWithMpa();
+        String sql = """
+                SELECT f.*, m.mpa_id, m.name AS mpa_name
+                FROM films f
+                LEFT JOIN MPA m ON f.mpa_id = m.mpa_id
+                """;
 
-        if (films.isEmpty()) {
-            log.debug("В базе данных нет фильмов");
-            return films;
-        }
-
-        loadGenresForFilms(films);
-        return films;
+        return jdbc.query(sql, filmRowMapper);
     }
 
     @Override
@@ -153,60 +135,15 @@ public class JdbcFilmRepository implements FilmStorage {
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource("count", count);
-
         List<Film> films = jdbc.query(sql, params, filmRowMapper);
-
-        if (!films.isEmpty()) {
-            List<Long> filmIds = films.stream()
-                    .map(Film::getId)
-                    .toList();
-            Map<Long, Set<Genre>> filmGenresMap = genreRepository.findGenresForFilms(filmIds);
-
-            films.forEach(film ->
-                    film.setGenres(filmGenresMap.getOrDefault(film.getId(), new HashSet<>()))
-            );
-        }
 
         log.debug("Найдено {} популярных фильмов", films.size());
         return films;
     }
 
-    private List<Film> getAllFilmsWithMpa() {
-        String sql = """
-                SELECT f.*, m.mpa_id, m.name AS mpa_name
-                FROM films f
-                LEFT JOIN MPA m ON f.mpa_id = m.mpa_id;
-                """;
-        return jdbc.query(sql, filmRowMapper);
-    }
-
-    private void loadGenresForFilms(List<Film> films) {
-        List<Long> filmIds = films.stream()
-                .map(Film::getId)
-                .toList();
-
-        Map<Long, Set<Genre>> filmGenresMap = genreRepository.findGenresForFilms(filmIds);
-
-        films.forEach(film ->
-                film.setGenres(filmGenresMap.getOrDefault(film.getId(), new HashSet<>()))
-        );
-    }
-
     private void validateFilm(Film film) {
         List<String> errors = new ArrayList<>();
         final LocalDate validData = LocalDate.of(1895, 1, 28);
-
-
-        if (film.getMpa() != null) {
-            int mpaId = film.getMpa().getId();
-            mpaRepository.findById(mpaId)
-                    .orElseThrow(() -> new NotFoundException("Рейтинг MPA с id " + mpaId + " не найден"));
-        }
-
-        if (film.getGenres() != null) {
-            film.getGenres().forEach(genre -> genreRepository.findById(genre.getId())
-                    .orElseThrow(() -> new NotFoundException("Жанр с id " + genre.getId() + " не найден")));
-        }
 
         if (film.getDuration().toMinutes() <= 0) {
             errors.add("Продолжительность не может быть отрицательной или 0");

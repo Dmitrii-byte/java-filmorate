@@ -9,6 +9,9 @@ import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.friend.FriendRepository;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -16,6 +19,24 @@ import java.util.Set;
 public class UserService {
     private final UserStorage userStorage;
     private final FriendRepository friendRepository;
+
+    public Optional<User> findById(long id) {
+        return userStorage.findById(id);
+    }
+
+    public List<User> findAll() {
+        return new ArrayList<>(userStorage.findAll());
+    }
+
+    public User create(User user) {
+        validateUser(user);
+        return userStorage.create(user);
+    }
+
+    public User update(User user) {
+        validateUser(user);
+        return userStorage.update(user);
+    }
 
     public Set<User> findAllFriends(Long userId) {
         checkUserExists(userId);
@@ -44,11 +65,14 @@ public class UserService {
         friendRepository.removeFriend(userId, friendId);
     }
 
-    public Set<User> getCommonFriends(Long userId1, Long userId2) {
-        checkUserExists(userId1);
-        checkUserExists(userId2);
-
+    public Set<User> getCommonFriends(long userId1, long userId2) {
         return friendRepository.getCommonFriends(userId1, userId2);
+    }
+
+    private void validateUser(User user) {
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getLogin());
+        }
     }
 
     private void checkUserExists(Long userId) {

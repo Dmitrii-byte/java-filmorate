@@ -7,7 +7,10 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.Genre;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Repository
@@ -72,39 +75,6 @@ public class JdbcGenreRepository implements GenreRepository {
 
         log.debug("Найдено {} жанров для фильма ID {}", genres.size(), filmId);
         return new LinkedHashSet<>(genres);
-    }
-
-    @Override
-    public Map<Long, Set<Genre>> findGenresForFilms(List<Long> filmIds) {
-        log.debug("Поиск жанров для {} фильмов", filmIds.size());
-
-        if (filmIds.isEmpty()) {
-            log.debug("Список ID фильмов пуст");
-            return Collections.emptyMap();
-        }
-
-        String sql = """
-                SELECT fg.film_id, g.genre_id, g.name AS genre_name
-                FROM film_genre fg
-                JOIN genre g ON fg.genre_id = g.genre_id
-                WHERE fg.film_id IN (:film_ids)
-                ORDER BY fg.film_id, g.genre_id
-                """;
-
-        MapSqlParameterSource params = new MapSqlParameterSource("film_ids", filmIds);
-        Map<Long, Set<Genre>> filmGenresMap = new HashMap<>();
-
-        jdbc.query(sql, params, (rs) -> {
-            Long filmId = rs.getLong("film_id");
-            Genre genre = new Genre();
-            genre.setId(rs.getInt("genre_id"));
-            genre.setName(rs.getString("genre_name"));
-
-            filmGenresMap.computeIfAbsent(filmId, k -> new LinkedHashSet<>()).add(genre);
-        });
-
-        log.debug("Жанры найдены для {} фильмов", filmGenresMap.size());
-        return filmGenresMap;
     }
 
     @Override

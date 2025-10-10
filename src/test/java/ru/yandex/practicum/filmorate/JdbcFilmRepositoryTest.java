@@ -32,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class JdbcFilmRepositoryTest {
 
     private final JdbcFilmRepository filmRepository;
+    private final JdbcMpaRepository mpaRepository;
+    private final JdbcGenreRepository genreRepository;
 
     @Test
     void testFindById_WhenFilmExists_ShouldReturnFilm() {
@@ -72,7 +74,8 @@ class JdbcFilmRepositoryTest {
     }
 
     @Test
-    void testAdd_WithGenres_ShouldSaveFilmWithGenres() {
+    void testAdd_WithGenres_ShouldSaveFilmWithoutGenres() {
+        // Теперь репозиторий не сохраняет жанры, только базовые данные фильма
         Film film = createTestFilm("Film with Genres", "Description");
         Genre genre1 = new Genre();
         genre1.setId(1);
@@ -84,7 +87,8 @@ class JdbcFilmRepositoryTest {
 
         Optional<Film> foundFilm = filmRepository.findById(savedFilm.getId());
         assertThat(foundFilm).isPresent();
-        assertThat(foundFilm.get().getGenres()).hasSize(2);
+        // Жанры не должны сохраняться через репозиторий фильмов
+        assertThat(foundFilm.get().getGenres()).isNull();
     }
 
     @Test
@@ -107,11 +111,9 @@ class JdbcFilmRepositoryTest {
     }
 
     @Test
-    void testUpdate_WithGenres_ShouldUpdateFilmGenres() {
+    void testUpdate_WithGenres_ShouldNotUpdateFilmGenres() {
+        // Репозиторий не обновляет жанры, только базовые данные
         Film film = createTestFilm("Film", "Description");
-        Genre genre1 = new Genre();
-        genre1.setId(1);
-        film.setGenres(Set.of(genre1));
         Film savedFilm = filmRepository.add(film);
 
         Film updatedFilm = createTestFilm("Updated Film", "Updated Description");
@@ -124,8 +126,8 @@ class JdbcFilmRepositoryTest {
 
         Optional<Film> foundFilm = filmRepository.findById(result.getId());
         assertThat(foundFilm).isPresent();
-        assertThat(foundFilm.get().getGenres()).hasSize(1);
-        assertThat(foundFilm.get().getGenres().iterator().next().getId()).isEqualTo(2);
+        // Жанры не должны обновляться через репозиторий фильмов
+        assertThat(foundFilm.get().getGenres()).isNull();
     }
 
     @Test
@@ -153,23 +155,16 @@ class JdbcFilmRepositoryTest {
     }
 
     @Test
-    void testAdd_WhenInvalidMpa_ShouldThrowException() {
-        Film film = createTestFilm("Film", "Description");
-        Mpa invalidMpa = new Mpa();
-        invalidMpa.setId(999);
-        film.setMpa(invalidMpa);
-
-        assertThrows(NotFoundException.class, () -> filmRepository.add(film));
-    }
-
-    @Test
-    void testAdd_WhenInvalidGenre_ShouldThrowException() {
+    void testAdd_WhenInvalidGenre_ShouldNotThrowException() {
+        // Теперь репозиторий не валидирует жанры
         Film film = createTestFilm("Film", "Description");
         Genre invalidGenre = new Genre();
         invalidGenre.setId(999);
         film.setGenres(Set.of(invalidGenre));
 
-        assertThrows(NotFoundException.class, () -> filmRepository.add(film));
+        // Не должно бросать исключение, так как валидация в сервисе
+        Film savedFilm = filmRepository.add(film);
+        assertThat(savedFilm).isNotNull();
     }
 
     @Test
@@ -211,6 +206,38 @@ class JdbcFilmRepositoryTest {
         assertThat(foundFilm).isPresent();
         assertThat(foundFilm.get().getName()).isEqualTo("Integration Film");
         assertThat(foundFilm.get().getDescription()).isEqualTo("Integration Description");
+    }
+
+    @Test
+    void testFindAll_WhenNoFilms_ShouldReturnEmptyList() {
+        List<Film> films = filmRepository.findAll();
+
+        assertThat(films).isEmpty();
+    }
+
+    @Test
+    void testGetTopPopular_WhenCountIsZero_ShouldReturnEmptyList() {
+        Film film = createTestFilm("Film", "Description");
+        filmRepository.add(film);
+
+        List<Film> popularFilms = filmRepository.getTopPopular(0);
+
+        assertThat(popularFilms).isEmpty();
+    }
+
+    @Test
+    void testGetTopPopular_WhenMoreFilmsThanCount_ShouldReturnLimitedList() {
+        Film film1 = createTestFilm("Film One", "Description One");
+        Film film2 = createTestFilm("Film Two", "Description Two");
+        Film film3 = createTestFilm("Film Three", "Description Three");
+
+        filmRepository.add(film1);
+        filmRepository.add(film2);
+        filmRepository.add(film3);
+
+        List<Film> popularFilms = filmRepository.getTopPopular(2);
+
+        assertThat(popularFilms).hasSize(2);
     }
 
     private Film createTestFilm(String name, String description) {

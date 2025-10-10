@@ -5,9 +5,9 @@ import jakarta.validation.constraints.Positive;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,37 +17,35 @@ import java.util.List;
 @Validated
 @Slf4j
 public class FilmController {
-    public final FilmStorage filmStorage;
-    public final FilmService filmService;
+    private final FilmService filmService;
 
-    public FilmController(FilmStorage filmStorage, FilmService filmService) {
-        this.filmStorage = filmStorage;
+    public FilmController(FilmService filmService) {
         this.filmService = filmService;
     }
 
     @GetMapping
     public Collection<Film> findAll() {
         log.info("GET /films - получение всех фильмов");
-        return filmStorage.findAll();
+        return filmService.findAll();
     }
 
     @GetMapping("/{id}")
     public Film findById(@PathVariable @Positive(message = "ID фильма должен быть положительным") long id) {
         log.info("GET /films/{} - получение фильма по ID", id);
-        return filmStorage.findById(id)
-                .orElseThrow(() -> new RuntimeException("Фильм с id " + id + " не найден"));
+        return filmService.findById(id)
+                .orElseThrow(() -> new NotFoundException("Фильм с id " + id + " не найден"));
     }
 
     @PostMapping
     public Film add(@Valid @RequestBody Film film) {
         log.info("POST /films - добавление фильма: {}", film);
-        return filmStorage.add(film);
+        return filmService.add(film);
     }
 
     @PutMapping
     public Film update(@Valid @RequestBody Film newFilm) {
         log.info("PUT /films - обновление фильма: {}", newFilm);
-        return filmStorage.update(newFilm);
+        return filmService.update(newFilm);
     }
 
     @PutMapping("/{filmId}/like/{userId}")
